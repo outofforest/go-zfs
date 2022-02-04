@@ -2,6 +2,7 @@
 package zfs
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -469,7 +470,8 @@ func (d *Dataset) LoadKey(password string) error {
 		return errors.New("can only load key for filesystem")
 	}
 
-	_, err := zfs("load-key", d.Name)
+	c := command{Command: "zfs", Stdin: bytes.NewReader([]byte(password))}
+	_, err := c.Run("load-key", d.Name)
 	return err
 }
 
