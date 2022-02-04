@@ -462,3 +462,23 @@ func (d *Dataset) Diff(snapshot string) ([]*InodeChange, error) {
 	}
 	return inodeChanges, nil
 }
+
+// LoadKey loads encryption key for dataset
+func (d *Dataset) LoadKey(password string) error {
+	if d.Type != DatasetFilesystem {
+		return errors.New("can only load key for filesystem")
+	}
+
+	_, err := zfs("load-key", d.Name)
+	return err
+}
+
+// UnloadKey unloads encryption key for dataset
+func (d *Dataset) UnloadKey() error {
+	if d.Type != DatasetFilesystem {
+		return errors.New("can only load key for filesystem")
+	}
+
+	_, err := zfs("unload-key", d.Name)
+	return err
+}
