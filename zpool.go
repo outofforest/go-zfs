@@ -99,7 +99,7 @@ func ListZpools() ([]*Zpool, error) {
 		return nil, err
 	}
 
-	var pools []*Zpool
+	pools := []*Zpool{}
 
 	for _, line := range out {
 		z, err := GetZpool(line[0])

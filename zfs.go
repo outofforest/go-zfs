@@ -97,7 +97,7 @@ type Logger interface {
 type defaultLogger struct{}
 
 func (*defaultLogger) Log(cmd []string) {
-	return
+
 }
 
 var logger Logger = &defaultLogger{}
@@ -175,8 +175,7 @@ func (d *Dataset) Clone(dest string, properties map[string]string) (*Dataset, er
 		args = append(args, propsSlice(properties)...)
 	}
 	args = append(args, []string{d.Name, dest}...)
-	_, err := zfs(args...)
-	if err != nil {
+	if _, err := zfs(args...); err != nil {
 		return nil, err
 	}
 	return GetDataset(dest)
@@ -452,7 +451,7 @@ func (d *Dataset) Children(depth uint64) ([]*Dataset, error) {
 // The snapshot name must include the filesystem part as it is possible to
 // compare clones with their origin snapshots.
 func (d *Dataset) Diff(snapshot string) ([]*InodeChange, error) {
-	args := []string{"diff", "-FH", snapshot, d.Name}[:]
+	args := []string{"diff", "-FH", snapshot, d.Name}
 	out, err := zfs(args...)
 	if err != nil {
 		return nil, err
