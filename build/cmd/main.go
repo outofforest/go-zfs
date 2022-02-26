@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/outofforest/build"
-	me "github.com/outofforest/go-zfs/v2/build"
+	me "github.com/outofforest/go-zfs/v3/build"
 	"github.com/outofforest/ioc/v2"
 	"github.com/outofforest/run"
 	"github.com/ridge/must"

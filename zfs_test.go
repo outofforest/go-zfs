@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/outofforest/go-zfs/v2"
+	"github.com/outofforest/go-zfs/v3"
 )
 
 func sleep(delay int) {
