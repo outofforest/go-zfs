@@ -1,4 +1,4 @@
-module github.com/outofforest/go-zfs/v2
+module github.com/outofforest/go-zfs/v3
 
 go 1.16
 
