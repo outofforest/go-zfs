@@ -63,6 +63,32 @@ func (d *Snapshot) Clone(ctx context.Context, dest string) (*Filesystem, error) 
 	return GetFilesystem(ctx, dest)
 }
 
+// Holds returns holds on snapshot
+func (d *Snapshot) Holds(ctx context.Context) ([]string, error) {
+	holds, err := zfs(ctx, "holds", "-H", d.Info.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]string, 0, len(holds))
+	for _, h := range holds {
+		out = append(out, h[1])
+	}
+	return out, nil
+}
+
+// Hold holds the snapshot
+func (d *Snapshot) Hold(ctx context.Context, tag string) error {
+	_, err := zfs(ctx, "hold", tag, d.Info.Name)
+	return err
+}
+
+// Release releases the snapshot
+func (d *Snapshot) Release(ctx context.Context, tag string) error {
+	_, err := zfs(ctx, "release", tag, d.Info.Name)
+	return err
+}
+
 // Send sends a ZFS stream of a snapshot to the input io.Writer.
 // An error will be returned if the input dataset is not of snapshot type.
 func (d *Snapshot) Send(ctx context.Context, output io.WriteCloser) error {
