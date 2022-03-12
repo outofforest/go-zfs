@@ -3,7 +3,9 @@ package zfs
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"math"
 )
 
@@ -12,8 +14,8 @@ const datasetFilesystem = "filesystem"
 // Filesystems returns a slice of ZFS filesystems.
 // A filter argument may be passed to select a filesystem with the matching name,
 // or empty string ("") may be used to select all filesystems.
-func Filesystems() ([]*Filesystem, error) {
-	infos, err := info(datasetFilesystem, "", math.MaxUint16)
+func Filesystems(ctx context.Context) ([]*Filesystem, error) {
+	infos, err := info(ctx, datasetFilesystem, "", math.MaxUint16)
 	if err != nil {
 		return nil, err
 	}
@@ -25,8 +27,8 @@ func Filesystems() ([]*Filesystem, error) {
 }
 
 // GetFilesystem retrieves a single ZFS filesystem by name
-func GetFilesystem(name string) (*Filesystem, error) {
-	info, err := info(datasetFilesystem, name, 0)
+func GetFilesystem(ctx context.Context, name string) (*Filesystem, error) {
+	info, err := info(ctx, datasetFilesystem, name, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +40,7 @@ func GetFilesystem(name string) (*Filesystem, error) {
 // properties.
 // A full list of available ZFS properties may be found here:
 // https://www.freebsd.org/cgi/man.cgi?zfs(8).
-func CreateFilesystem(name string, properties map[string]string) (*Filesystem, error) {
+func CreateFilesystem(ctx context.Context, name string, properties map[string]string) (*Filesystem, error) {
 	args := make([]string, 1, 4)
 	args[0] = "create"
 	password, exists := properties["password"]
@@ -46,17 +48,16 @@ func CreateFilesystem(name string, properties map[string]string) (*Filesystem, e
 	if len(properties) > 0 {
 		args = append(args, propsSlice(properties)...)
 	}
-	c := command{Command: "zfs"}
+	var stdin io.Reader
 	if exists {
 		args = append(args, "-o", "encryption=on", "-o", "keylocation=prompt", "-o", "keyformat=passphrase")
-		c.Stdin = bytes.NewReader([]byte(password + "\n" + password))
+		stdin = bytes.NewReader([]byte(password + "\n" + password))
 	}
 	args = append(args, name)
-	_, err := c.Run(args...)
-	if err != nil {
+	if _, err := zfsStdin(ctx, stdin, args...); err != nil {
 		return nil, err
 	}
-	return GetFilesystem(name)
+	return GetFilesystem(ctx, name)
 }
 
 // Filesystem is a ZFS filesystem
@@ -68,45 +69,45 @@ type Filesystem struct {
 // descendents of the dataset will be recursively destroyed, including snapshots.
 // If the deferred bit flag is set, the snapshot is marked for deferred
 // deletion.
-func (d *Filesystem) Destroy(flags DestroyFlag) error {
-	return destroy(d.Info.Name, flags)
+func (d *Filesystem) Destroy(ctx context.Context, flags DestroyFlag) error {
+	return destroy(ctx, d.Info.Name, flags)
 }
 
 // SetProperty sets a ZFS property on the receiving dataset.
 // A full list of available ZFS properties may be found here:
 // https://www.freebsd.org/cgi/man.cgi?zfs(8).
-func (d *Filesystem) SetProperty(key, val string) error {
-	return setProperty(d.Info.Name, key, val)
+func (d *Filesystem) SetProperty(ctx context.Context, key, val string) error {
+	return setProperty(ctx, d.Info.Name, key, val)
 }
 
 // GetProperty returns the current value of a ZFS property from the
 // receiving dataset.
 // A full list of available ZFS properties may be found here:
 // https://www.freebsd.org/cgi/man.cgi?zfs(8).
-func (d *Filesystem) GetProperty(key string) (string, error) {
-	return getProperty(d.Info.Name, key)
+func (d *Filesystem) GetProperty(ctx context.Context, key string) (string, error) {
+	return getProperty(ctx, d.Info.Name, key)
 }
 
 // Snapshots returns a slice of all ZFS snapshots of a given dataset.
-func (d *Filesystem) Snapshots() ([]*Snapshot, error) {
-	return snapshots(d.Info.Name, 1)
+func (d *Filesystem) Snapshots(ctx context.Context) ([]*Snapshot, error) {
+	return snapshots(ctx, d.Info.Name, 1)
 }
 
 // Snapshot creates a new ZFS snapshot of the receiving dataset, using the
 // specified name.  Optionally, the snapshot can be taken recursively, creating
 // snapshots of all descendent filesystems in a single, atomic operation.
-func (d *Filesystem) Snapshot(name string) (*Snapshot, error) {
+func (d *Filesystem) Snapshot(ctx context.Context, name string) (*Snapshot, error) {
 	snapName := fmt.Sprintf("%s@%s", d.Info.Name, name)
-	_, err := zfs("snapshot", snapName)
+	_, err := zfs(ctx, "snapshot", snapName)
 	if err != nil {
 		return nil, err
 	}
-	return GetSnapshot(snapName)
+	return GetSnapshot(ctx, snapName)
 }
 
 // Children returns a slice of children of the receiving ZFS dataset.
-func (d *Filesystem) Children() ([]*Filesystem, error) {
-	infos, err := info(datasetFilesystem, d.Info.Name, 1)
+func (d *Filesystem) Children(ctx context.Context) ([]*Filesystem, error) {
+	infos, err := info(ctx, datasetFilesystem, d.Info.Name, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -119,26 +120,25 @@ func (d *Filesystem) Children() ([]*Filesystem, error) {
 }
 
 // Mount mounts ZFS filesystem
-func (d *Filesystem) Mount() error {
-	_, err := zfs("mount", d.Info.Name)
+func (d *Filesystem) Mount(ctx context.Context) error {
+	_, err := zfs(ctx, "mount", d.Info.Name)
 	return err
 }
 
 // Unmount unmounts ZFS filesystem
-func (d *Filesystem) Unmount() error {
-	_, err := zfs("umount", d.Info.Name)
+func (d *Filesystem) Unmount(ctx context.Context) error {
+	_, err := zfs(ctx, "umount", d.Info.Name)
 	return err
 }
 
 // LoadKey loads encryption key for dataset
-func (d *Filesystem) LoadKey(password string) error {
-	c := command{Command: "zfs", Stdin: bytes.NewReader([]byte(password))}
-	_, err := c.Run("load-key", d.Info.Name)
+func (d *Filesystem) LoadKey(ctx context.Context, password string) error {
+	_, err := zfsStdin(ctx, bytes.NewReader([]byte(password)), "load-key", d.Info.Name)
 	return err
 }
 
 // UnloadKey unloads encryption key for dataset
-func (d *Filesystem) UnloadKey() error {
-	_, err := zfs("unload-key", d.Info.Name)
+func (d *Filesystem) UnloadKey(ctx context.Context) error {
+	_, err := zfs(ctx, "unload-key", d.Info.Name)
 	return err
 }
