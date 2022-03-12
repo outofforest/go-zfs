@@ -15,48 +15,48 @@ import (
 
 type testCase struct {
 	Name string
-	Fn   func(t *testing.T)
+	Fn   func(t *testing.T, ctx context.Context)
 }
 
 var tests = []testCase{
 	{
 		Name: "TestCreateAndDestroyFilesystem",
-		Fn: func(t *testing.T) {
+		Fn: func(t *testing.T, ctx context.Context) {
 			const name = "gozfs/fs"
 
-			fs, err := CreateFilesystem(name, nil)
+			fs, err := CreateFilesystem(ctx, name, nil)
 			require.NoError(t, err)
 			assert.Equal(t, name, fs.Info.Name)
 			assert.Equal(t, "/"+name, fs.Info.Mountpoint)
 
-			require.NoError(t, fs.Destroy(DestroyDefault))
-			_, err = GetFilesystem(name)
+			require.NoError(t, fs.Destroy(ctx, DestroyDefault))
+			_, err = GetFilesystem(ctx, name)
 			assert.Error(t, err)
 		},
 	},
 	{
 		Name: "TestFilesystemProperties",
-		Fn: func(t *testing.T) {
-			fs, err := CreateFilesystem("gozfs/fs", map[string]string{"test:prop1": "value1", "test:prop2": "value2"})
+		Fn: func(t *testing.T, ctx context.Context) {
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", map[string]string{"test:prop1": "value1", "test:prop2": "value2"})
 			require.NoError(t, err)
 
-			v1, err := fs.GetProperty("test:prop1")
+			v1, err := fs.GetProperty(ctx, "test:prop1")
 			require.NoError(t, err)
-			v2, err := fs.GetProperty("test:prop2")
+			v2, err := fs.GetProperty(ctx, "test:prop2")
 			require.NoError(t, err)
-			v3, err := fs.GetProperty("test:prop3")
+			v3, err := fs.GetProperty(ctx, "test:prop3")
 			require.NoError(t, err)
 
 			assert.Equal(t, "value1", v1)
 			assert.Equal(t, "value2", v2)
 			assert.Equal(t, "-", v3)
 
-			require.NoError(t, fs.SetProperty("test:prop2", "value22"))
-			require.NoError(t, fs.SetProperty("test:prop3", "value3"))
+			require.NoError(t, fs.SetProperty(ctx, "test:prop2", "value22"))
+			require.NoError(t, fs.SetProperty(ctx, "test:prop3", "value3"))
 
-			v2, err = fs.GetProperty("test:prop2")
+			v2, err = fs.GetProperty(ctx, "test:prop2")
 			require.NoError(t, err)
-			v3, err = fs.GetProperty("test:prop3")
+			v3, err = fs.GetProperty(ctx, "test:prop3")
 			require.NoError(t, err)
 
 			assert.Equal(t, "value22", v2)
@@ -65,39 +65,39 @@ var tests = []testCase{
 	},
 	{
 		Name: "TestCreateAndDestroySnapshot",
-		Fn: func(t *testing.T) {
+		Fn: func(t *testing.T, ctx context.Context) {
 			const fsName = "gozfs/fs"
 			const sName = "test"
 
-			fs, err := CreateFilesystem(fsName, nil)
+			fs, err := CreateFilesystem(ctx, fsName, nil)
 			require.NoError(t, err)
 
-			s, err := fs.Snapshot(sName)
+			s, err := fs.Snapshot(ctx, sName)
 			require.NoError(t, err)
 			assert.Equal(t, fsName+"@"+sName, s.Info.Name)
 
-			require.NoError(t, s.Destroy(DestroyDefault))
-			_, err = GetSnapshot(fsName + "@" + sName)
+			require.NoError(t, s.Destroy(ctx, DestroyDefault))
+			_, err = GetSnapshot(ctx, fsName+"@"+sName)
 			assert.Error(t, err)
 		},
 	},
 	{
 		Name: "TestSnapshotProperties",
-		Fn: func(t *testing.T) {
-			fs, err := CreateFilesystem("gozfs/fs", nil)
+		Fn: func(t *testing.T, ctx context.Context) {
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
 			require.NoError(t, err)
 
-			s, err := fs.Snapshot("test")
+			s, err := fs.Snapshot(ctx, "test")
 			require.NoError(t, err)
 
-			v, err := s.GetProperty("test:prop")
+			v, err := s.GetProperty(ctx, "test:prop")
 			require.NoError(t, err)
 
 			assert.Equal(t, "-", v)
 
-			require.NoError(t, s.SetProperty("test:prop", "value"))
+			require.NoError(t, s.SetProperty(ctx, "test:prop", "value"))
 
-			v, err = s.GetProperty("test:prop")
+			v, err = s.GetProperty(ctx, "test:prop")
 			require.NoError(t, err)
 
 			assert.Equal(t, "value", v)
@@ -105,15 +105,15 @@ var tests = []testCase{
 	},
 	{
 		Name: "TestClone",
-		Fn: func(t *testing.T) {
-			fs, err := CreateFilesystem("gozfs/fs", nil)
+		Fn: func(t *testing.T, ctx context.Context) {
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test"), 0o600))
 
-			s, err := fs.Snapshot("image")
+			s, err := fs.Snapshot(ctx, "image")
 			require.NoError(t, err)
 
-			fsClone, err := s.Clone("gozfs/fsclone")
+			fsClone, err := s.Clone(ctx, "gozfs/fsclone")
 			require.NoError(t, err)
 
 			assert.Equal(t, "gozfs/fsclone", fsClone.Info.Name)
@@ -126,22 +126,22 @@ var tests = []testCase{
 	},
 	{
 		Name: "TestRollback",
-		Fn: func(t *testing.T) {
+		Fn: func(t *testing.T, ctx context.Context) {
 			const file = "/gozfs/fs/content"
 
-			fs, err := CreateFilesystem("gozfs/fs", nil)
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(file, []byte("test"), 0o600))
 
-			s, err := fs.Snapshot("image")
+			s, err := fs.Snapshot(ctx, "image")
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(file, []byte("test2"), 0o600))
 
-			_, err = fs.Snapshot("image2")
+			_, err = fs.Snapshot(ctx, "image2")
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(file, []byte("test3"), 0o600))
 
-			require.NoError(t, s.Rollback())
+			require.NoError(t, s.Rollback(ctx))
 			content, err := ioutil.ReadFile(file)
 			require.NoError(t, err)
 
@@ -150,7 +150,7 @@ var tests = []testCase{
 	},
 	{
 		Name: "TestListing",
-		Fn: func(t *testing.T) {
+		Fn: func(t *testing.T, ctx context.Context) {
 			// gozfs
 			// gozfs/A
 			// gozfs/A@1
@@ -171,64 +171,64 @@ var tests = []testCase{
 			// gozfs/BB@1
 			// gozfs/BB@2
 
-			fs, err := GetFilesystem("gozfs")
+			fs, err := GetFilesystem(ctx, "gozfs")
 			require.NoError(t, err)
 
-			fsA, err := CreateFilesystem("gozfs/A", nil)
+			fsA, err := CreateFilesystem(ctx, "gozfs/A", nil)
 			require.NoError(t, err)
 
-			fsAA, err := CreateFilesystem("gozfs/A/A", nil)
+			fsAA, err := CreateFilesystem(ctx, "gozfs/A/A", nil)
 			require.NoError(t, err)
 
-			fsAB, err := CreateFilesystem("gozfs/A/B", nil)
+			fsAB, err := CreateFilesystem(ctx, "gozfs/A/B", nil)
 			require.NoError(t, err)
 
-			fsB, err := CreateFilesystem("gozfs/B", nil)
+			fsB, err := CreateFilesystem(ctx, "gozfs/B", nil)
 			require.NoError(t, err)
 
-			fsBA, err := CreateFilesystem("gozfs/B/A", nil)
+			fsBA, err := CreateFilesystem(ctx, "gozfs/B/A", nil)
 			require.NoError(t, err)
 
-			fsBB, err := CreateFilesystem("gozfs/B/B", nil)
+			fsBB, err := CreateFilesystem(ctx, "gozfs/B/B", nil)
 			require.NoError(t, err)
 
-			sA1, err := fsA.Snapshot("1")
+			sA1, err := fsA.Snapshot(ctx, "1")
 			require.NoError(t, err)
 
-			sA2, err := fsA.Snapshot("2")
+			sA2, err := fsA.Snapshot(ctx, "2")
 			require.NoError(t, err)
 
-			sAA1, err := fsAA.Snapshot("1")
+			sAA1, err := fsAA.Snapshot(ctx, "1")
 			require.NoError(t, err)
 
-			sAA2, err := fsAA.Snapshot("2")
+			sAA2, err := fsAA.Snapshot(ctx, "2")
 			require.NoError(t, err)
 
-			sAB1, err := fsAB.Snapshot("1")
+			sAB1, err := fsAB.Snapshot(ctx, "1")
 			require.NoError(t, err)
 
-			sAB2, err := fsAB.Snapshot("2")
+			sAB2, err := fsAB.Snapshot(ctx, "2")
 			require.NoError(t, err)
 
-			sB1, err := fsB.Snapshot("1")
+			sB1, err := fsB.Snapshot(ctx, "1")
 			require.NoError(t, err)
 
-			sB2, err := fsB.Snapshot("2")
+			sB2, err := fsB.Snapshot(ctx, "2")
 			require.NoError(t, err)
 
-			sBA1, err := fsBA.Snapshot("1")
+			sBA1, err := fsBA.Snapshot(ctx, "1")
 			require.NoError(t, err)
 
-			sBA2, err := fsBA.Snapshot("2")
+			sBA2, err := fsBA.Snapshot(ctx, "2")
 			require.NoError(t, err)
 
-			sBB1, err := fsBB.Snapshot("1")
+			sBB1, err := fsBB.Snapshot(ctx, "1")
 			require.NoError(t, err)
 
-			sBB2, err := fsBB.Snapshot("2")
+			sBB2, err := fsBB.Snapshot(ctx, "2")
 			require.NoError(t, err)
 
-			fss, err := Filesystems()
+			fss, err := Filesystems(ctx)
 			require.NoError(t, err)
 			require.Len(t, fss, 7)
 			assert.Equal(t, fs.Info.Name, fss[0].Info.Name)
@@ -239,7 +239,7 @@ var tests = []testCase{
 			assert.Equal(t, fsBA.Info.Name, fss[5].Info.Name)
 			assert.Equal(t, fsBB.Info.Name, fss[6].Info.Name)
 
-			ss, err := Snapshots()
+			ss, err := Snapshots(ctx)
 			require.NoError(t, err)
 			require.Len(t, ss, 12)
 			assert.Equal(t, sA1.Info.Name, ss[0].Info.Name)
@@ -255,75 +255,75 @@ var tests = []testCase{
 			assert.Equal(t, sBB1.Info.Name, ss[10].Info.Name)
 			assert.Equal(t, sBB2.Info.Name, ss[11].Info.Name)
 
-			fss, err = fs.Children()
+			fss, err = fs.Children(ctx)
 			require.NoError(t, err)
 			require.Len(t, fss, 2)
 			assert.Equal(t, fsA.Info.Name, fss[0].Info.Name)
 			assert.Equal(t, fsB.Info.Name, fss[1].Info.Name)
 
-			fss, err = fsA.Children()
+			fss, err = fsA.Children(ctx)
 			require.NoError(t, err)
 			require.Len(t, fss, 2)
 			assert.Equal(t, fsAA.Info.Name, fss[0].Info.Name)
 			assert.Equal(t, fsAB.Info.Name, fss[1].Info.Name)
 
-			fss, err = fsB.Children()
+			fss, err = fsB.Children(ctx)
 			require.NoError(t, err)
 			require.Len(t, fss, 2)
 			assert.Equal(t, fsBA.Info.Name, fss[0].Info.Name)
 			assert.Equal(t, fsBB.Info.Name, fss[1].Info.Name)
 
-			fss, err = fsAA.Children()
+			fss, err = fsAA.Children(ctx)
 			require.NoError(t, err)
 			require.Len(t, fss, 0)
 
-			fss, err = fsAB.Children()
+			fss, err = fsAB.Children(ctx)
 			require.NoError(t, err)
 			require.Len(t, fss, 0)
 
-			fss, err = fsBA.Children()
+			fss, err = fsBA.Children(ctx)
 			require.NoError(t, err)
 			require.Len(t, fss, 0)
 
-			fss, err = fsBB.Children()
+			fss, err = fsBB.Children(ctx)
 			require.NoError(t, err)
 			require.Len(t, fss, 0)
 
-			ss, err = fs.Snapshots()
+			ss, err = fs.Snapshots(ctx)
 			require.NoError(t, err)
 			require.Len(t, ss, 0)
 
-			ss, err = fsA.Snapshots()
+			ss, err = fsA.Snapshots(ctx)
 			require.NoError(t, err)
 			require.Len(t, ss, 2)
 			assert.Equal(t, sA1.Info.Name, ss[0].Info.Name)
 			assert.Equal(t, sA2.Info.Name, ss[1].Info.Name)
 
-			ss, err = fsAA.Snapshots()
+			ss, err = fsAA.Snapshots(ctx)
 			require.NoError(t, err)
 			require.Len(t, ss, 2)
 			assert.Equal(t, sAA1.Info.Name, ss[0].Info.Name)
 			assert.Equal(t, sAA2.Info.Name, ss[1].Info.Name)
 
-			ss, err = fsAB.Snapshots()
+			ss, err = fsAB.Snapshots(ctx)
 			require.NoError(t, err)
 			require.Len(t, ss, 2)
 			assert.Equal(t, sAB1.Info.Name, ss[0].Info.Name)
 			assert.Equal(t, sAB2.Info.Name, ss[1].Info.Name)
 
-			ss, err = fsB.Snapshots()
+			ss, err = fsB.Snapshots(ctx)
 			require.NoError(t, err)
 			require.Len(t, ss, 2)
 			assert.Equal(t, sB1.Info.Name, ss[0].Info.Name)
 			assert.Equal(t, sB2.Info.Name, ss[1].Info.Name)
 
-			ss, err = fsBA.Snapshots()
+			ss, err = fsBA.Snapshots(ctx)
 			require.NoError(t, err)
 			require.Len(t, ss, 2)
 			assert.Equal(t, sBA1.Info.Name, ss[0].Info.Name)
 			assert.Equal(t, sBA2.Info.Name, ss[1].Info.Name)
 
-			ss, err = fsBB.Snapshots()
+			ss, err = fsBB.Snapshots(ctx)
 			require.NoError(t, err)
 			require.Len(t, ss, 2)
 			assert.Equal(t, sBB1.Info.Name, ss[0].Info.Name)
@@ -332,17 +332,17 @@ var tests = []testCase{
 	},
 	{
 		Name: "TestMount",
-		Fn: func(t *testing.T) {
+		Fn: func(t *testing.T, ctx context.Context) {
 			const file = "/gozfs/fs/content"
 
-			fs, err := CreateFilesystem("gozfs/fs", nil)
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(file, []byte("test"), 0o600))
-			require.NoError(t, fs.Unmount())
+			require.NoError(t, fs.Unmount(ctx))
 			_, err = ioutil.ReadFile(file)
 			assert.Error(t, err)
 
-			require.NoError(t, fs.Mount())
+			require.NoError(t, fs.Mount(ctx))
 			content, err := ioutil.ReadFile(file)
 			require.NoError(t, err)
 			assert.Equal(t, "test", string(content))
@@ -350,21 +350,21 @@ var tests = []testCase{
 	},
 	{
 		Name: "TestEncryption",
-		Fn: func(t *testing.T) {
+		Fn: func(t *testing.T, ctx context.Context) {
 			const file = "/gozfs/fs/content"
 			const password = "supersecret"
 
-			fs, err := CreateFilesystem("gozfs/fs", map[string]string{"password": password})
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", map[string]string{"password": password})
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(file, []byte("test"), 0o600))
-			require.NoError(t, fs.Unmount())
-			require.NoError(t, fs.UnloadKey())
+			require.NoError(t, fs.Unmount(ctx))
+			require.NoError(t, fs.UnloadKey(ctx))
 			_, err = ioutil.ReadFile(file)
 			assert.Error(t, err)
-			assert.Error(t, fs.Mount())
+			assert.Error(t, fs.Mount(ctx))
 
-			require.NoError(t, fs.LoadKey(password))
-			require.NoError(t, fs.Mount())
+			require.NoError(t, fs.LoadKey(ctx, password))
+			require.NoError(t, fs.Mount(ctx))
 			content, err := ioutil.ReadFile(file)
 			require.NoError(t, err)
 			assert.Equal(t, "test", string(content))
@@ -372,27 +372,27 @@ var tests = []testCase{
 	},
 	{
 		Name: "TestSend",
-		Fn: func(t *testing.T) {
-			fs, err := CreateFilesystem("gozfs/fs", nil)
+		Fn: func(t *testing.T, ctx context.Context) {
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
 			require.NoError(t, err)
 
 			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test1"), 0o600))
-			s1, err := fs.Snapshot("image1")
+			s1, err := fs.Snapshot(ctx, "image1")
 			require.NoError(t, err)
 
 			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test2"), 0o600))
-			s2, err := fs.Snapshot("image2")
+			s2, err := fs.Snapshot(ctx, "image2")
 			require.NoError(t, err)
 
 			var sr1 *Snapshot
 			r, w := io.Pipe()
 			require.NoError(t, parallel.Run(context.Background(), func(ctx context.Context, spawn parallel.SpawnFn) error {
 				spawn("send", parallel.Continue, func(ctx context.Context) error {
-					return s1.Send(w)
+					return s1.Send(ctx, w)
 				})
 				spawn("receive", parallel.Exit, func(ctx context.Context) error {
 					var err error
-					sr1, err = ReceiveSnapshot(r, "gozfs/copy@received1")
+					sr1, err = ReceiveSnapshot(ctx, r, "gozfs/copy@received1")
 					return err
 				})
 				return nil
@@ -402,15 +402,15 @@ var tests = []testCase{
 			require.NoError(t, err)
 			assert.Equal(t, "test1", string(content))
 
-			require.NoError(t, sr1.Rollback())
+			require.NoError(t, sr1.Rollback(ctx))
 
 			r, w = io.Pipe()
 			require.NoError(t, parallel.Run(context.Background(), func(ctx context.Context, spawn parallel.SpawnFn) error {
 				spawn("send", parallel.Continue, func(ctx context.Context) error {
-					return s2.IncrementalSend(s1, w)
+					return s2.IncrementalSend(ctx, s1, w)
 				})
 				spawn("receive", parallel.Exit, func(ctx context.Context) error {
-					_, err := ReceiveSnapshot(r, "gozfs/copy@received2")
+					_, err := ReceiveSnapshot(ctx, r, "gozfs/copy@received2")
 					return err
 				})
 				return nil
@@ -424,14 +424,20 @@ var tests = []testCase{
 }
 
 func TestZFS(t *testing.T) {
+	t.Cleanup(clean)
 	clean()
-	defer clean()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
 
 	require.NoError(t, exec.Command("modprobe", "brd", "rd_nr=1", "rd_size=102400").Run())
 	for _, test := range tests {
+		test := test
 		require.NoError(t, exec.Command("zpool", "create", "gozfs", "/dev/ram0").Run())
 
-		t.Run(test.Name, test.Fn)
+		t.Run(test.Name, func(t *testing.T) {
+			test.Fn(t, ctx)
+		})
 
 		require.NoError(t, exec.Command("zpool", "destroy", "gozfs").Run())
 	}

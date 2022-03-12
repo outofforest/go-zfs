@@ -2,70 +2,26 @@ package zfs
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/outofforest/libexec"
 )
 
 var dsPropListOptions = strings.Join([]string{"name", "origin", "used", "available", "mountpoint", "compression", "volsize", "quota", "referenced", "written", "logicalused", "usedbydataset"}, ",")
 
-type command struct {
-	Command string
-	Stdin   io.Reader
-	Stdout  io.Writer
+type cmdError struct {
+	Err    error
+	Stderr string
 }
 
-func (c *command) Run(arg ...string) ([][]string, error) {
-	cmd := exec.Command(c.Command, arg...)
-
-	var stdout, stderr bytes.Buffer
-
-	if c.Stdout == nil {
-		cmd.Stdout = &stdout
-	} else {
-		cmd.Stdout = c.Stdout
-	}
-
-	if c.Stdin != nil {
-		cmd.Stdin = c.Stdin
-	}
-	cmd.Stderr = &stderr
-
-	id := uuid.New().String()
-	joinedArgs := strings.Join(cmd.Args, " ")
-
-	logger.Log([]string{"ID:" + id, "START", joinedArgs})
-	err := cmd.Run()
-	logger.Log([]string{"ID:" + id, "FINISH"})
-
-	if err != nil {
-		return nil, &Error{
-			Err:    err,
-			Debug:  strings.Join([]string{cmd.Path, joinedArgs[1:]}, " "),
-			Stderr: stderr.String(),
-		}
-	}
-
-	// assume if you passed in something for stdout, that you know what to do with it
-	if c.Stdout != nil {
-		return nil, nil
-	}
-
-	lines := strings.Split(stdout.String(), "\n")
-
-	// last line is always blank
-	lines = lines[0 : len(lines)-1]
-	output := make([][]string, len(lines))
-
-	for i, l := range lines {
-		output[i] = strings.Fields(l)
-	}
-
-	return output, nil
+// Error returns the string representation of an Error.
+func (e cmdError) Error() string {
+	return fmt.Sprintf("%s => %s", e.Err, e.Stderr)
 }
 
 func setString(field *string, value string) {
@@ -105,12 +61,12 @@ type Info struct {
 	Referenced    uint64
 }
 
-func info(t, filter string, depth uint16) ([]Info, error) {
+func info(ctx context.Context, t, filter string, depth uint16) ([]Info, error) {
 	args := []string{"list", "-Hp", "-t", t, "-o", dsPropListOptions, "-d", strconv.FormatUint(uint64(depth), 10)}
 	if filter != "" {
 		args = append(args, filter)
 	}
-	out, err := zfs(args...)
+	out, err := zfs(ctx, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -187,34 +143,47 @@ const (
 	DestroyForceUmount                 = 1 << iota
 )
 
-// Logger can be used to log commands/actions
-type Logger interface {
-	Log(cmd []string)
-}
-
-type defaultLogger struct{}
-
-func (*defaultLogger) Log(cmd []string) {
-
-}
-
-var logger Logger = &defaultLogger{}
-
-// SetLogger set a log handler to log all commands including arguments before
-// they are executed
-func SetLogger(l Logger) {
-	if l != nil {
-		logger = l
-	}
-}
-
 // zfs is a helper function to wrap typical calls to zfs.
-func zfs(arg ...string) ([][]string, error) {
-	c := command{Command: "zfs"}
-	return c.Run(arg...)
+func zfs(ctx context.Context, args ...string) ([][]string, error) {
+	return zfsStdin(ctx, nil, args...)
 }
 
-func destroy(name string, flags DestroyFlag) error {
+func zfsStdin(ctx context.Context, stdin io.Reader, args ...string) ([][]string, error) {
+	sOut := &bytes.Buffer{}
+	sErr := &bytes.Buffer{}
+	cmd := exec.Command("zfs", args...)
+	cmd.Stdout = sOut
+	cmd.Stderr = sErr
+	cmd.Stdin = stdin
+	if err := libexec.Exec(ctx, cmd); err != nil {
+		return nil, &cmdError{Err: err, Stderr: sErr.String()}
+	}
+
+	lines := strings.Split(sOut.String(), "\n")
+
+	// last line is always blank
+	lines = lines[0 : len(lines)-1]
+	output := make([][]string, len(lines))
+
+	for i, l := range lines {
+		output[i] = strings.Fields(l)
+	}
+
+	return output, nil
+}
+
+func zfsStdout(ctx context.Context, stdout io.Writer, args ...string) error {
+	sErr := &bytes.Buffer{}
+	cmd := exec.Command("zfs", args...)
+	cmd.Stdout = stdout
+	cmd.Stderr = sErr
+	if err := libexec.Exec(ctx, cmd); err != nil {
+		return &cmdError{Err: err, Stderr: sErr.String()}
+	}
+	return nil
+}
+
+func destroy(ctx context.Context, name string, flags DestroyFlag) error {
 	args := make([]string, 1, 3)
 	args[0] = "destroy"
 	if flags&DestroyRecursive != 0 {
@@ -234,18 +203,18 @@ func destroy(name string, flags DestroyFlag) error {
 	}
 
 	args = append(args, name)
-	_, err := zfs(args...)
+	_, err := zfs(ctx, args...)
 	return err
 }
 
-func setProperty(name, key, val string) error {
+func setProperty(ctx context.Context, name, key, val string) error {
 	prop := strings.Join([]string{key, val}, "=")
-	_, err := zfs("set", prop, name)
+	_, err := zfs(ctx, "set", prop, name)
 	return err
 }
 
-func getProperty(name, key string) (string, error) {
-	out, err := zfs("get", "-H", key, name)
+func getProperty(ctx context.Context, name, key string) (string, error) {
+	out, err := zfs(ctx, "get", "-H", key, name)
 	if err != nil {
 		return "", err
 	}
