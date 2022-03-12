@@ -421,6 +421,38 @@ var tests = []testCase{
 			assert.Equal(t, "test2", string(content))
 		},
 	},
+	{
+		Name: "TestHolds",
+		Fn: func(t *testing.T, ctx context.Context) {
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
+			require.NoError(t, err)
+
+			s, err := fs.Snapshot(ctx, "image")
+			require.NoError(t, err)
+
+			require.NoError(t, s.Hold(ctx, "tag1"))
+			require.NoError(t, s.Hold(ctx, "tag2"))
+
+			holds, err := s.Holds(ctx)
+			require.NoError(t, err)
+			require.Len(t, holds, 2)
+			assert.Equal(t, "tag1", holds[0])
+			assert.Equal(t, "tag2", holds[1])
+
+			require.NoError(t, s.Release(ctx, "tag1"))
+
+			holds, err = s.Holds(ctx)
+			require.NoError(t, err)
+			require.Len(t, holds, 1)
+			assert.Equal(t, "tag2", holds[0])
+
+			require.NoError(t, s.Release(ctx, "tag2"))
+
+			holds, err = s.Holds(ctx)
+			require.NoError(t, err)
+			require.Len(t, holds, 0)
+		},
+	},
 }
 
 func TestZFS(t *testing.T) {
