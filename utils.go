@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -15,14 +13,9 @@ import (
 )
 
 // List of ZFS properties to retrieve from zfs list command on a non-Solaris platform
-var dsPropList = []string{"name", "origin", "used", "available", "mountpoint", "compression", "type", "volsize", "quota", "referenced", "written", "logicalused", "usedbydataset"}
+var dsPropList = []string{"name", "origin", "used", "available", "mountpoint", "compression", "volsize", "quota", "referenced", "written", "logicalused", "usedbydataset"}
 
 var dsPropListOptions = strings.Join(dsPropList, ",")
-
-// List of Zpool properties to retrieve from zpool list command on a non-Solaris platform
-var zpoolPropList = []string{"name", "health", "allocated", "size", "free", "readonly", "dedupratio", "fragmentation", "freeing", "leaked"}
-var zpoolPropListOptions = strings.Join(zpoolPropList, ",")
-var zpoolArgs = []string{"get", "-p", zpoolPropListOptions}
 
 type command struct {
 	Command string
@@ -100,202 +93,29 @@ func setUint(field *uint64, value string) error {
 	return nil
 }
 
-func (d *Dataset) parseLine(line []string) error {
-	var err error
-
-	if len(line) != len(dsPropList) {
-		return errors.New("output does not match what is expected on this platform")
-	}
-	setString(&d.Name, line[0])
-	setString(&d.Origin, line[1])
-
-	if err = setUint(&d.Used, line[2]); err != nil {
-		return err
-	}
-	if err = setUint(&d.Avail, line[3]); err != nil {
-		return err
-	}
-
-	setString(&d.Mountpoint, line[4])
-	setString(&d.Compression, line[5])
-	setString(&d.Type, line[6])
-
-	if err = setUint(&d.Volsize, line[7]); err != nil {
-		return err
-	}
-	if err = setUint(&d.Quota, line[8]); err != nil {
-		return err
-	}
-	if err = setUint(&d.Referenced, line[9]); err != nil {
-		return err
-	}
-
-	if runtime.GOOS == "solaris" {
-		return nil
-	}
-
-	if err = setUint(&d.Written, line[10]); err != nil {
-		return err
-	}
-	if err = setUint(&d.Logicalused, line[11]); err != nil {
-		return err
-	}
-	if err = setUint(&d.Usedbydataset, line[12]); err != nil {
-		return err
-	}
-
-	return nil
+// Info contains dataset info
+type Info struct {
+	Name          string
+	Origin        string
+	Used          uint64
+	Avail         uint64
+	Mountpoint    string
+	Compression   string
+	Written       uint64
+	Volsize       uint64
+	Logicalused   uint64
+	Usedbydataset uint64
+	Quota         uint64
+	Referenced    uint64
 }
 
-/*
- * from zfs diff`s escape function:
- *
- * Prints a file name out a character at a time.  If the character is
- * not in the range of what we consider "printable" ASCII, display it
- * as an escaped 3-digit octal value.  ASCII values less than a space
- * are all control characters and we declare the upper end as the
- * DELete character.  This also is the last 7-bit ASCII character.
- * We choose to treat all 8-bit ASCII as not printable for this
- * application.
- */
-func unescapeFilepath(path string) (string, error) {
-	buf := make([]byte, 0, len(path))
-	llen := len(path)
-	for i := 0; i < llen; {
-		if path[i] == '\\' {
-			if llen < i+4 {
-				return "", errors.New("invalid octal code: too short")
-			}
-			octalCode := path[(i + 1):(i + 4)]
-			val, err := strconv.ParseUint(octalCode, 8, 8)
-			if err != nil {
-				return "", fmt.Errorf("invalid octal code: %v", err)
-			}
-			buf = append(buf, byte(val))
-			i += 4
-		} else {
-			buf = append(buf, path[i])
-			i++
-		}
-	}
-	return string(buf), nil
-}
-
-var changeTypeMap = map[string]ChangeType{
-	"-": Removed,
-	"+": Created,
-	"M": Modified,
-	"R": Renamed,
-}
-var inodeTypeMap = map[string]InodeType{
-	"B": BlockDevice,
-	"C": CharacterDevice,
-	"/": Directory,
-	">": Door,
-	"|": NamedPipe,
-	"@": SymbolicLink,
-	"P": EventPort,
-	"=": Socket,
-	"F": File,
-}
-
-// matches (+1) or (-1)
-var referenceCountRegex = regexp.MustCompile(`\(([+-]\d+?)\)`)
-
-func parseReferenceCount(field string) (int, error) {
-	matches := referenceCountRegex.FindStringSubmatch(field)
-	if matches == nil {
-		return 0, errors.New("regexp does not match")
-	}
-	return strconv.Atoi(matches[1])
-}
-
-func parseInodeChange(line []string) (*InodeChange, error) {
-	llen := len(line)
-	if llen < 1 {
-		return nil, errors.New("empty line passed")
-	}
-
-	changeType := changeTypeMap[line[0]]
-	if changeType == 0 {
-		return nil, fmt.Errorf("unknown change type '%s'", line[0])
-	}
-
-	switch changeType {
-	case Renamed:
-		if llen != 4 {
-			return nil, fmt.Errorf("mismatching number of fields: expect 4, got: %d", llen)
-		}
-	case Modified:
-		if llen != 4 && llen != 3 {
-			return nil, fmt.Errorf("mismatching number of fields: expect 3..4, got: %d", llen)
-		}
-	default:
-		if llen != 3 {
-			return nil, fmt.Errorf("mismatching number of fields: expect 3, got: %d", llen)
-		}
-	}
-
-	inodeType := inodeTypeMap[line[1]]
-	if inodeType == 0 {
-		return nil, fmt.Errorf("unknown inode type '%s'", line[1])
-	}
-
-	path, err := unescapeFilepath(line[2])
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse filename: %v", err)
-	}
-
-	var newPath string
-	var referenceCount int
-	switch changeType {
-	case Renamed:
-		newPath, err = unescapeFilepath(line[3])
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse filename: %v", err)
-		}
-	case Modified:
-		if llen == 4 {
-			referenceCount, err = parseReferenceCount(line[3])
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse reference count: %v", err)
-			}
-		}
-	default:
-		newPath = ""
-	}
-
-	return &InodeChange{
-		Change:               changeType,
-		Type:                 inodeType,
-		Path:                 path,
-		NewPath:              newPath,
-		ReferenceCountChange: referenceCount,
-	}, nil
-}
-
-// example input
-// M       /       /testpool/bar/
-// +       F       /testpool/bar/hello.txt
-// M       /       /testpool/bar/hello.txt (+1)
-// M       /       /testpool/bar/hello-hardlink
-func parseInodeChanges(lines [][]string) ([]*InodeChange, error) {
-	changes := make([]*InodeChange, len(lines))
-
-	for i, line := range lines {
-		c, err := parseInodeChange(line)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse line %d of zfs diff: %v, got: '%s'", i, err, line)
-		}
-		changes[i] = c
-	}
-	return changes, nil
-}
-
-func listByType(t, filter string) ([]*Dataset, error) {
-	args := []string{"list", "-rHp", "-t", t, "-o", dsPropListOptions}
+func info(t, filter string, recursive bool) ([]Info, error) {
+	args := []string{"list", "-Hp", "-t", t, "-o", dsPropListOptions}
 
 	if filter != "" {
+		if recursive {
+			args = append(args, "-r")
+		}
 		args = append(args, filter)
 	}
 	out, err := zfs(args...)
@@ -303,22 +123,58 @@ func listByType(t, filter string) ([]*Dataset, error) {
 		return nil, err
 	}
 
-	var datasets []*Dataset
-
-	name := ""
-	var ds *Dataset
+	infos := []Info{}
 	for _, line := range out {
-		if name != line[0] {
-			name = line[0]
-			ds = &Dataset{Name: name}
-			datasets = append(datasets, ds)
-		}
-		if err := ds.parseLine(line); err != nil {
+		var info Info
+		if err := parseLine(line, &info); err != nil {
 			return nil, err
 		}
+		infos = append(infos, info)
 	}
 
-	return datasets, nil
+	return infos, nil
+}
+
+func parseLine(line []string, info *Info) error {
+	var err error
+
+	if len(line) != len(dsPropList) {
+		return errors.New("output does not match what is expected on this platform")
+	}
+	setString(&info.Name, line[0])
+	setString(&info.Origin, line[1])
+
+	if err = setUint(&info.Used, line[2]); err != nil {
+		return err
+	}
+	if err = setUint(&info.Avail, line[3]); err != nil {
+		return err
+	}
+
+	setString(&info.Mountpoint, line[4])
+	setString(&info.Compression, line[5])
+
+	if err = setUint(&info.Volsize, line[6]); err != nil {
+		return err
+	}
+	if err = setUint(&info.Quota, line[7]); err != nil {
+		return err
+	}
+	if err = setUint(&info.Referenced, line[8]); err != nil {
+		return err
+	}
+
+	if err = setUint(&info.Written, line[9]); err != nil {
+		return err
+	}
+	if err = setUint(&info.Logicalused, line[10]); err != nil {
+		return err
+	}
+	if err = setUint(&info.Usedbydataset, line[11]); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func propsSlice(properties map[string]string) []string {
@@ -328,41 +184,4 @@ func propsSlice(properties map[string]string) []string {
 		args = append(args, fmt.Sprintf("%s=%s", k, v))
 	}
 	return args
-}
-
-func (z *Zpool) parseLine(line []string) error {
-	prop := line[1]
-	val := line[2]
-
-	var err error
-
-	switch prop {
-	case "name":
-		setString(&z.Name, val)
-	case "health":
-		setString(&z.Health, val)
-	case "allocated":
-		err = setUint(&z.Allocated, val)
-	case "size":
-		err = setUint(&z.Size, val)
-	case "free":
-		err = setUint(&z.Free, val)
-	case "fragmentation":
-		// Trim trailing "%" before parsing uint
-		i := strings.Index(val, "%")
-		if i < 0 {
-			i = len(val)
-		}
-		err = setUint(&z.Fragmentation, val[:i])
-	case "readonly":
-		z.ReadOnly = val == "on"
-	case "freeing":
-		err = setUint(&z.Freeing, val)
-	case "leaked":
-		err = setUint(&z.Leaked, val)
-	case "dedupratio":
-		// Trim trailing "x" before parsing float64
-		z.DedupRatio, err = strconv.ParseFloat(val[:len(val)-1], 64)
-	}
-	return err
 }
