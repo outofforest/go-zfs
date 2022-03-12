@@ -3,7 +3,6 @@ package zfs
 
 import (
 	"io"
-	"strings"
 )
 
 const datasetSnapshot = "snapshot"
@@ -92,36 +91,14 @@ func (d *Snapshot) IncrementalSend(base *Snapshot, output io.Writer) error {
 // If the deferred bit flag is set, the snapshot is marked for deferred
 // deletion.
 func (d *Snapshot) Destroy(flags DestroyFlag) error {
-	args := make([]string, 1, 3)
-	args[0] = "destroy"
-	if flags&DestroyRecursive != 0 {
-		args = append(args, "-r")
-	}
-
-	if flags&DestroyRecursiveClones != 0 {
-		args = append(args, "-R")
-	}
-
-	if flags&DestroyDeferDeletion != 0 {
-		args = append(args, "-d")
-	}
-
-	if flags&DestroyForceUmount != 0 {
-		args = append(args, "-f")
-	}
-
-	args = append(args, d.Info.Name)
-	_, err := zfs(args...)
-	return err
+	return destroy(d.Info.Name, flags)
 }
 
 // SetProperty sets a ZFS property on the receiving dataset.
 // A full list of available ZFS properties may be found here:
 // https://www.freebsd.org/cgi/man.cgi?zfs(8).
 func (d *Snapshot) SetProperty(key, val string) error {
-	prop := strings.Join([]string{key, val}, "=")
-	_, err := zfs("set", prop, d.Info.Name)
-	return err
+	return setProperty(d.Info.Name, key, val)
 }
 
 // GetProperty returns the current value of a ZFS property from the
@@ -129,12 +106,7 @@ func (d *Snapshot) SetProperty(key, val string) error {
 // A full list of available ZFS properties may be found here:
 // https://www.freebsd.org/cgi/man.cgi?zfs(8).
 func (d *Snapshot) GetProperty(key string) (string, error) {
-	out, err := zfs("get", "-H", key, d.Info.Name)
-	if err != nil {
-		return "", err
-	}
-
-	return out[0][2], nil
+	return getProperty(d.Info.Name, key)
 }
 
 // Rollback rolls back the receiving ZFS dataset to a previous snapshot.
