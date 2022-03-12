@@ -105,13 +105,9 @@ type Info struct {
 	Referenced    uint64
 }
 
-func info(t, filter string, recursive bool) ([]Info, error) {
-	args := []string{"list", "-Hp", "-t", t, "-o", dsPropListOptions}
-
+func info(t, filter string, depth uint16) ([]Info, error) {
+	args := []string{"list", "-Hp", "-t", t, "-o", dsPropListOptions, "-d", strconv.FormatUint(uint64(depth), 10)}
 	if filter != "" {
-		if recursive {
-			args = append(args, "-r")
-		}
 		args = append(args, filter)
 	}
 	out, err := zfs(args...)
