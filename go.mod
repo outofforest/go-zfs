@@ -11,4 +11,6 @@ require (
 	github.com/outofforest/ioc/v2 v2.5.0
 	github.com/outofforest/run v0.2.2
 	github.com/ridge/must v0.6.0
+	github.com/ridge/parallel v0.1.1
+	github.com/stretchr/testify v1.7.0
 )

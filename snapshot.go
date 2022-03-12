@@ -3,6 +3,7 @@ package zfs
 
 import (
 	"io"
+	"math"
 )
 
 const datasetSnapshot = "snapshot"
@@ -11,11 +12,11 @@ const datasetSnapshot = "snapshot"
 // A filter argument may be passed to select a snapshot with the matching name,
 // or empty string ("") may be used to select all snapshots.
 func Snapshots() ([]*Snapshot, error) {
-	return snapshots("")
+	return snapshots("", math.MaxUint16)
 }
 
-func snapshots(filter string) ([]*Snapshot, error) {
-	infos, err := info(datasetSnapshot, filter, false)
+func snapshots(filter string, depth uint16) ([]*Snapshot, error) {
+	infos, err := info(datasetSnapshot, filter, depth)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +29,7 @@ func snapshots(filter string) ([]*Snapshot, error) {
 
 // GetSnapshot retrieves a single ZFS snapshot by name
 func GetSnapshot(name string) (*Snapshot, error) {
-	info, err := info(datasetSnapshot, name, false)
+	info, err := info(datasetSnapshot, name, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -39,10 +40,11 @@ func GetSnapshot(name string) (*Snapshot, error) {
 // ReceiveSnapshot receives a ZFS stream from the input io.Reader, creates a
 // new snapshot with the specified name, and streams the input data into the
 // newly-created snapshot.
-func ReceiveSnapshot(input io.Reader, name string) (*Snapshot, error) {
+func ReceiveSnapshot(input io.ReadCloser, name string) (*Snapshot, error) {
+	defer input.Close()
+
 	c := command{Command: "zfs", Stdin: input}
-	_, err := c.Run("receive", name)
-	if err != nil {
+	if _, err := c.Run("receive", name); err != nil {
 		return nil, err
 	}
 	return GetSnapshot(name)
@@ -53,17 +55,10 @@ type Snapshot struct {
 	Info Info
 }
 
-// Clone clones a ZFS snapshot and returns a clone dataset.
+// Clone clones a ZFS snapshot and returns the cloned filesystem.
 // An error will be returned if the input dataset is not of snapshot type.
-func (d *Snapshot) Clone(dest string, properties map[string]string) (*Filesystem, error) {
-	args := make([]string, 2, 4)
-	args[0] = "clone"
-	args[1] = "-p"
-	if properties != nil {
-		args = append(args, propsSlice(properties)...)
-	}
-	args = append(args, []string{d.Info.Name, dest}...)
-	if _, err := zfs(args...); err != nil {
+func (d *Snapshot) Clone(dest string) (*Filesystem, error) {
+	if _, err := zfs("clone", d.Info.Name, dest); err != nil {
 		return nil, err
 	}
 	return GetFilesystem(dest)
@@ -71,7 +66,8 @@ func (d *Snapshot) Clone(dest string, properties map[string]string) (*Filesystem
 
 // Send sends a ZFS stream of a snapshot to the input io.Writer.
 // An error will be returned if the input dataset is not of snapshot type.
-func (d *Snapshot) Send(output io.Writer) error {
+func (d *Snapshot) Send(output io.WriteCloser) error {
+	defer output.Close()
 	c := command{Command: "zfs", Stdout: output}
 	_, err := c.Run("send", d.Info.Name)
 	return err
@@ -80,7 +76,8 @@ func (d *Snapshot) Send(output io.Writer) error {
 // IncrementalSend sends a ZFS stream of a snapshot to the input io.Writer
 // using the baseSnapshot as the starting point.
 // An error will be returned if the input dataset is not of snapshot type.
-func (d *Snapshot) IncrementalSend(base *Snapshot, output io.Writer) error {
+func (d *Snapshot) IncrementalSend(base *Snapshot, output io.WriteCloser) error {
+	defer output.Close()
 	c := command{Command: "zfs", Stdout: output}
 	_, err := c.Run("send", "-i", base.Info.Name, d.Info.Name)
 	return err
@@ -109,19 +106,9 @@ func (d *Snapshot) GetProperty(key string) (string, error) {
 	return getProperty(d.Info.Name, key)
 }
 
-// Rollback rolls back the receiving ZFS dataset to a previous snapshot.
-// Optionally, intermediate snapshots can be destroyed.  A ZFS snapshot
-// rollback cannot be completed without this option, if more recent
-// snapshots exist.
-// An error will be returned if the input dataset is not of snapshot type.
-func (d *Snapshot) Rollback(destroyMoreRecent bool) error {
-	args := make([]string, 1, 3)
-	args[0] = "rollback"
-	if destroyMoreRecent {
-		args = append(args, "-r")
-	}
-	args = append(args, d.Info.Name)
-
-	_, err := zfs(args...)
+// Rollback rolls back the receiving ZFS filesystem to a previous snapshot.
+// Intermediate snapshots can be destroyed.
+func (d *Snapshot) Rollback() error {
+	_, err := zfs("rollback", "-r", d.Info.Name)
 	return err
 }
