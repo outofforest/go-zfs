@@ -159,17 +159,7 @@ func zfsStdin(ctx context.Context, stdin io.Reader, args ...string) ([][]string,
 		return nil, &cmdError{Err: err, Stderr: sErr.String()}
 	}
 
-	lines := strings.Split(sOut.String(), "\n")
-
-	// last line is always blank
-	lines = lines[0 : len(lines)-1]
-	output := make([][]string, len(lines))
-
-	for i, l := range lines {
-		output[i] = strings.Fields(l)
-	}
-
-	return output, nil
+	return outputToFields(sOut.String()), nil
 }
 
 func zfsStdout(ctx context.Context, stdout io.Writer, args ...string) error {
@@ -181,6 +171,33 @@ func zfsStdout(ctx context.Context, stdout io.Writer, args ...string) error {
 		return &cmdError{Err: err, Stderr: sErr.String()}
 	}
 	return nil
+}
+
+func zpool(ctx context.Context, args ...string) ([][]string, error) {
+	sOut := &bytes.Buffer{}
+	sErr := &bytes.Buffer{}
+	cmd := exec.Command("zpool", args...)
+	cmd.Stdout = sOut
+	cmd.Stderr = sErr
+	if err := libexec.Exec(ctx, cmd); err != nil {
+		return nil, &cmdError{Err: err, Stderr: sErr.String()}
+	}
+
+	return outputToFields(sOut.String()), nil
+}
+
+func outputToFields(out string) [][]string {
+	lines := strings.Split(out, "\n")
+
+	// last line is always blank
+	lines = lines[0 : len(lines)-1]
+	output := make([][]string, len(lines))
+
+	for i, l := range lines {
+		output[i] = strings.Fields(l)
+	}
+
+	return output
 }
 
 func destroy(ctx context.Context, name string, flags DestroyFlag) error {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os/exec"
+	"sort"
 	"testing"
 
 	"github.com/ridge/parallel"
@@ -18,7 +19,7 @@ type testCase struct {
 	Fn   func(t *testing.T, ctx context.Context)
 }
 
-var tests = []testCase{
+var zfsTests = []testCase{
 	{
 		Name: "TestCreateAndDestroyFilesystem",
 		Fn: func(t *testing.T, ctx context.Context) {
@@ -434,6 +435,7 @@ var tests = []testCase{
 			require.NoError(t, s.Hold(ctx, "tag2"))
 
 			holds, err := s.Holds(ctx)
+			sort.Strings(holds)
 			require.NoError(t, err)
 			require.Len(t, holds, 2)
 			assert.Equal(t, "tag1", holds[0])
@@ -456,14 +458,14 @@ var tests = []testCase{
 }
 
 func TestZFS(t *testing.T) {
-	t.Cleanup(clean)
-	clean()
+	t.Cleanup(cleanZFS)
+	cleanZFS()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
 	require.NoError(t, exec.Command("modprobe", "brd", "rd_nr=1", "rd_size=102400").Run())
-	for _, test := range tests {
+	for _, test := range zfsTests {
 		test := test
 		require.NoError(t, exec.Command("zpool", "create", "gozfs", "/dev/ram0").Run())
 
@@ -476,7 +478,7 @@ func TestZFS(t *testing.T) {
 	require.NoError(t, exec.Command("rmmod", "brd").Run())
 }
 
-func clean() {
+func cleanZFS() {
 	_ = exec.Command("zpool", "destroy", "gozfs").Run()
 	_ = exec.Command("rmmod", "brd").Run()
 }
