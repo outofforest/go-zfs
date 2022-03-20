@@ -62,8 +62,13 @@ type Snapshot struct {
 
 // Clone clones a ZFS snapshot and returns the cloned filesystem.
 // An error will be returned if the input dataset is not of snapshot type.
-func (d *Snapshot) Clone(ctx context.Context, dest string) (*Filesystem, error) {
-	if _, err := zfs(ctx, "clone", d.Info.Name, dest); err != nil {
+func (d *Snapshot) Clone(ctx context.Context, dest string, properties map[string]string) (*Filesystem, error) {
+	args := []string{"clone"}
+	if len(properties) > 0 {
+		args = append(args, propsSlice(properties)...)
+	}
+	args = append(args, d.Info.Name, dest)
+	if _, err := zfs(ctx, args...); err != nil {
 		return nil, err
 	}
 	return GetFilesystem(ctx, dest)

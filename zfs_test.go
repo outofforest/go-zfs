@@ -121,10 +121,15 @@ var zfsTests = []testCase{
 			s, err := fs.Snapshot(ctx, "image")
 			require.NoError(t, err)
 
-			fsClone, err := s.Clone(ctx, "gozfs/fsclone")
+			fsClone, err := s.Clone(ctx, "gozfs/fsclone", map[string]string{"test:prop": "value"})
 			require.NoError(t, err)
 
 			assert.Equal(t, "gozfs/fsclone", fsClone.Info.Name)
+
+			value, exists, err := fsClone.GetProperty(ctx, "test:prop")
+			require.NoError(t, err)
+			assert.True(t, exists)
+			assert.Equal(t, "value", value)
 
 			content, err := ioutil.ReadFile("/gozfs/fsclone/content")
 			require.NoError(t, err)
