@@ -84,7 +84,7 @@ func (d *Filesystem) SetProperty(ctx context.Context, key, val string) error {
 // receiving dataset.
 // A full list of available ZFS properties may be found here:
 // https://www.freebsd.org/cgi/man.cgi?zfs(8).
-func (d *Filesystem) GetProperty(ctx context.Context, key string) (string, error) {
+func (d *Filesystem) GetProperty(ctx context.Context, key string) (string, bool, error) {
 	return getProperty(ctx, d.Info.Name, key)
 }
 
