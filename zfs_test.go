@@ -25,7 +25,7 @@ var zfsTests = []testCase{
 		Fn: func(t *testing.T, ctx context.Context) {
 			const name = "gozfs/fs"
 
-			fs, err := CreateFilesystem(ctx, name, nil)
+			fs, err := CreateFilesystem(ctx, name, CreateFilesystemOptions{})
 			require.NoError(t, err)
 			assert.Equal(t, name, fs.Info.Name)
 			assert.Equal(t, "/"+name, fs.Info.Mountpoint)
@@ -38,7 +38,9 @@ var zfsTests = []testCase{
 	{
 		Name: "TestFilesystemProperties",
 		Fn: func(t *testing.T, ctx context.Context) {
-			fs, err := CreateFilesystem(ctx, "gozfs/fs", map[string]string{"test:prop1": "value1", "test:prop2": "value2"})
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{
+				Properties: map[string]string{"test:prop1": "value1", "test:prop2": "value2"},
+			})
 			require.NoError(t, err)
 
 			v1, exists1, err := fs.GetProperty(ctx, "test:prop1")
@@ -76,7 +78,7 @@ var zfsTests = []testCase{
 			const fsName = "gozfs/fs"
 			const sName = "test"
 
-			fs, err := CreateFilesystem(ctx, fsName, nil)
+			fs, err := CreateFilesystem(ctx, fsName, CreateFilesystemOptions{})
 			require.NoError(t, err)
 
 			s, err := fs.Snapshot(ctx, sName)
@@ -91,7 +93,7 @@ var zfsTests = []testCase{
 	{
 		Name: "TestSnapshotProperties",
 		Fn: func(t *testing.T, ctx context.Context) {
-			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{})
 			require.NoError(t, err)
 
 			s, err := fs.Snapshot(ctx, "test")
@@ -114,14 +116,16 @@ var zfsTests = []testCase{
 	{
 		Name: "TestClone",
 		Fn: func(t *testing.T, ctx context.Context) {
-			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{})
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test"), 0o600))
 
 			s, err := fs.Snapshot(ctx, "image")
 			require.NoError(t, err)
 
-			fsClone, err := s.Clone(ctx, "gozfs/fsclone", map[string]string{"test:prop": "value"})
+			fsClone, err := s.Clone(ctx, "gozfs/fsclone", CloneOptions{
+				Properties: map[string]string{"test:prop": "value"},
+			})
 			require.NoError(t, err)
 
 			assert.Equal(t, "gozfs/fsclone", fsClone.Info.Name)
@@ -142,7 +146,7 @@ var zfsTests = []testCase{
 		Fn: func(t *testing.T, ctx context.Context) {
 			const file = "/gozfs/fs/content"
 
-			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{})
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(file, []byte("test"), 0o600))
 
@@ -187,22 +191,22 @@ var zfsTests = []testCase{
 			fs, err := GetFilesystem(ctx, "gozfs")
 			require.NoError(t, err)
 
-			fsA, err := CreateFilesystem(ctx, "gozfs/A", nil)
+			fsA, err := CreateFilesystem(ctx, "gozfs/A", CreateFilesystemOptions{})
 			require.NoError(t, err)
 
-			fsAA, err := CreateFilesystem(ctx, "gozfs/A/A", nil)
+			fsAA, err := CreateFilesystem(ctx, "gozfs/A/A", CreateFilesystemOptions{})
 			require.NoError(t, err)
 
-			fsAB, err := CreateFilesystem(ctx, "gozfs/A/B", nil)
+			fsAB, err := CreateFilesystem(ctx, "gozfs/A/B", CreateFilesystemOptions{})
 			require.NoError(t, err)
 
-			fsB, err := CreateFilesystem(ctx, "gozfs/B", nil)
+			fsB, err := CreateFilesystem(ctx, "gozfs/B", CreateFilesystemOptions{})
 			require.NoError(t, err)
 
-			fsBA, err := CreateFilesystem(ctx, "gozfs/B/A", nil)
+			fsBA, err := CreateFilesystem(ctx, "gozfs/B/A", CreateFilesystemOptions{})
 			require.NoError(t, err)
 
-			fsBB, err := CreateFilesystem(ctx, "gozfs/B/B", nil)
+			fsBB, err := CreateFilesystem(ctx, "gozfs/B/B", CreateFilesystemOptions{})
 			require.NoError(t, err)
 
 			sA1, err := fsA.Snapshot(ctx, "1")
@@ -348,7 +352,7 @@ var zfsTests = []testCase{
 		Fn: func(t *testing.T, ctx context.Context) {
 			const file = "/gozfs/fs/content"
 
-			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{})
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(file, []byte("test"), 0o600))
 			require.NoError(t, fs.Unmount(ctx))
@@ -367,7 +371,7 @@ var zfsTests = []testCase{
 			const file = "/gozfs/fs/content"
 			const password = "supersecret"
 
-			fs, err := CreateFilesystem(ctx, "gozfs/fs", map[string]string{"password": password})
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{Password: password})
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(file, []byte("test"), 0o600))
 			require.NoError(t, fs.Unmount(ctx))
@@ -386,7 +390,7 @@ var zfsTests = []testCase{
 	{
 		Name: "TestSend",
 		Fn: func(t *testing.T, ctx context.Context) {
-			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{})
 			require.NoError(t, err)
 
 			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test1"), 0o600))
@@ -439,7 +443,7 @@ var zfsTests = []testCase{
 		Fn: func(t *testing.T, ctx context.Context) {
 			const password = "supersecret"
 
-			fs, err := CreateFilesystem(ctx, "gozfs/fs", map[string]string{"password": password})
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{Password: password})
 			require.NoError(t, err)
 
 			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test"), 0o600))
@@ -475,7 +479,7 @@ var zfsTests = []testCase{
 	{
 		Name: "TestHolds",
 		Fn: func(t *testing.T, ctx context.Context) {
-			fs, err := CreateFilesystem(ctx, "gozfs/fs", nil)
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{})
 			require.NoError(t, err)
 
 			s, err := fs.Snapshot(ctx, "image")

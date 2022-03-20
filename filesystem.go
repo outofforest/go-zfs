@@ -36,21 +36,25 @@ func GetFilesystem(ctx context.Context, name string) (*Filesystem, error) {
 	return &Filesystem{Info: info[0]}, nil
 }
 
+// CreateFilesystemOptions stores options passed to CreateFilesystem function
+type CreateFilesystemOptions struct {
+	Properties map[string]string
+	Password   string
+}
+
 // CreateFilesystem creates a new ZFS filesystem with the specified name and
 // properties.
 // A full list of available ZFS properties may be found here:
 // https://www.freebsd.org/cgi/man.cgi?zfs(8).
-func CreateFilesystem(ctx context.Context, name string, properties map[string]string) (*Filesystem, error) {
+func CreateFilesystem(ctx context.Context, name string, options CreateFilesystemOptions) (*Filesystem, error) {
 	args := []string{"create"}
-	password, exists := properties["password"]
-	delete(properties, "password")
-	if len(properties) > 0 {
-		args = append(args, propsSlice(properties)...)
+	if len(options.Properties) > 0 {
+		args = append(args, propsSlice(options.Properties)...)
 	}
 	var stdin io.Reader
-	if exists {
+	if options.Password != "" {
 		args = append(args, "-o", "encryption=on", "-o", "keylocation=prompt", "-o", "keyformat=passphrase")
-		stdin = bytes.NewReader([]byte(password + "\n" + password))
+		stdin = bytes.NewReader([]byte(options.Password + "\n" + options.Password))
 	}
 	args = append(args, name)
 	if _, err := zfsStdin(ctx, stdin, args...); err != nil {
