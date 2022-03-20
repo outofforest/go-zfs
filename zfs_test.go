@@ -41,24 +41,30 @@ var zfsTests = []testCase{
 			fs, err := CreateFilesystem(ctx, "gozfs/fs", map[string]string{"test:prop1": "value1", "test:prop2": "value2"})
 			require.NoError(t, err)
 
-			v1, err := fs.GetProperty(ctx, "test:prop1")
+			v1, exists1, err := fs.GetProperty(ctx, "test:prop1")
 			require.NoError(t, err)
-			v2, err := fs.GetProperty(ctx, "test:prop2")
+			v2, exists2, err := fs.GetProperty(ctx, "test:prop2")
 			require.NoError(t, err)
-			v3, err := fs.GetProperty(ctx, "test:prop3")
+			_, exists3, err := fs.GetProperty(ctx, "test:prop3")
 			require.NoError(t, err)
+
+			assert.True(t, exists1)
+			assert.True(t, exists2)
+			assert.False(t, exists3)
 
 			assert.Equal(t, "value1", v1)
 			assert.Equal(t, "value2", v2)
-			assert.Equal(t, "-", v3)
 
 			require.NoError(t, fs.SetProperty(ctx, "test:prop2", "value22"))
 			require.NoError(t, fs.SetProperty(ctx, "test:prop3", "value3"))
 
-			v2, err = fs.GetProperty(ctx, "test:prop2")
+			v2, exists2, err = fs.GetProperty(ctx, "test:prop2")
 			require.NoError(t, err)
-			v3, err = fs.GetProperty(ctx, "test:prop3")
+			v3, exists3, err := fs.GetProperty(ctx, "test:prop3")
 			require.NoError(t, err)
+
+			assert.True(t, exists2)
+			assert.True(t, exists3)
 
 			assert.Equal(t, "value22", v2)
 			assert.Equal(t, "value3", v3)
@@ -91,16 +97,17 @@ var zfsTests = []testCase{
 			s, err := fs.Snapshot(ctx, "test")
 			require.NoError(t, err)
 
-			v, err := s.GetProperty(ctx, "test:prop")
+			_, exists, err := s.GetProperty(ctx, "test:prop")
 			require.NoError(t, err)
 
-			assert.Equal(t, "-", v)
+			assert.False(t, exists)
 
 			require.NoError(t, s.SetProperty(ctx, "test:prop", "value"))
 
-			v, err = s.GetProperty(ctx, "test:prop")
+			v, exists, err := s.GetProperty(ctx, "test:prop")
 			require.NoError(t, err)
 
+			assert.True(t, exists)
 			assert.Equal(t, "value", v)
 		},
 	},

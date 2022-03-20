@@ -230,11 +230,16 @@ func setProperty(ctx context.Context, name, key, val string) error {
 	return err
 }
 
-func getProperty(ctx context.Context, name, key string) (string, error) {
+func getProperty(ctx context.Context, name, key string) (string, bool, error) {
 	out, err := zfs(ctx, "get", "-H", key, name)
 	if err != nil {
-		return "", err
+		return "", false, err
+	}
+	value := out[0][2]
+	source := out[0][3]
+	if value == "-" && source == "-" {
+		return "", false, nil
 	}
 
-	return out[0][2], nil
+	return out[0][2], true, nil
 }
