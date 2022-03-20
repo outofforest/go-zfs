@@ -9,6 +9,12 @@ import (
 
 const datasetSnapshot = "snapshot"
 
+// SendOptions is the set of options available for Send command
+type SendOptions struct {
+	Raw           bool
+	IncrementFrom *Snapshot
+}
+
 // Snapshots returns a slice of ZFS snapshots.
 // A filter argument may be passed to select a snapshot with the matching name,
 // or empty string ("") may be used to select all snapshots.
@@ -91,17 +97,17 @@ func (d *Snapshot) Release(ctx context.Context, tag string) error {
 
 // Send sends a ZFS stream of a snapshot to the input io.Writer.
 // An error will be returned if the input dataset is not of snapshot type.
-func (d *Snapshot) Send(ctx context.Context, output io.WriteCloser) error {
+func (d *Snapshot) Send(ctx context.Context, options SendOptions, output io.WriteCloser) error {
 	defer output.Close()
-	return zfsStdout(ctx, output, "send", d.Info.Name)
-}
-
-// IncrementalSend sends a ZFS stream of a snapshot to the input io.Writer
-// using the baseSnapshot as the starting point.
-// An error will be returned if the input dataset is not of snapshot type.
-func (d *Snapshot) IncrementalSend(ctx context.Context, base *Snapshot, output io.WriteCloser) error {
-	defer output.Close()
-	return zfsStdout(ctx, output, "send", "-i", base.Info.Name, d.Info.Name)
+	args := []string{"send"}
+	if options.Raw {
+		args = append(args, "--raw")
+	}
+	if options.IncrementFrom != nil {
+		args = append(args, "-i", options.IncrementFrom.Info.Name)
+	}
+	args = append(args, d.Info.Name)
+	return zfsStdout(ctx, output, args...)
 }
 
 // Destroy destroys a ZFS dataset. If the destroy bit flag is set, any

@@ -394,9 +394,9 @@ var zfsTests = []testCase{
 
 			var sr1 *Snapshot
 			r, w := io.Pipe()
-			require.NoError(t, parallel.Run(context.Background(), func(ctx context.Context, spawn parallel.SpawnFn) error {
+			require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 				spawn("send", parallel.Continue, func(ctx context.Context) error {
-					return s1.Send(ctx, w)
+					return s1.Send(ctx, SendOptions{}, w)
 				})
 				spawn("receive", parallel.Exit, func(ctx context.Context) error {
 					var err error
@@ -413,9 +413,9 @@ var zfsTests = []testCase{
 			require.NoError(t, sr1.Rollback(ctx))
 
 			r, w = io.Pipe()
-			require.NoError(t, parallel.Run(context.Background(), func(ctx context.Context, spawn parallel.SpawnFn) error {
+			require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 				spawn("send", parallel.Continue, func(ctx context.Context) error {
-					return s2.IncrementalSend(ctx, s1, w)
+					return s2.Send(ctx, SendOptions{IncrementFrom: s1}, w)
 				})
 				spawn("receive", parallel.Exit, func(ctx context.Context) error {
 					_, err := ReceiveSnapshot(ctx, r, "gozfs/copy@received2")
@@ -427,6 +427,44 @@ var zfsTests = []testCase{
 			content, err = ioutil.ReadFile("/gozfs/copy/content")
 			require.NoError(t, err)
 			assert.Equal(t, "test2", string(content))
+		},
+	},
+	{
+		Name: "TestSendRawEncrypted",
+		Fn: func(t *testing.T, ctx context.Context) {
+			const password = "supersecret"
+
+			fs, err := CreateFilesystem(ctx, "gozfs/fs", map[string]string{"password": password})
+			require.NoError(t, err)
+
+			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test"), 0o600))
+			s, err := fs.Snapshot(ctx, "image")
+			require.NoError(t, err)
+
+			r, w := io.Pipe()
+			require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
+				spawn("send", parallel.Continue, func(ctx context.Context) error {
+					return s.Send(ctx, SendOptions{Raw: true}, w)
+				})
+				spawn("receive", parallel.Exit, func(ctx context.Context) error {
+					_, err := ReceiveSnapshot(ctx, r, "gozfs/copy@received")
+					return err
+				})
+				return nil
+			}))
+
+			_, err = ioutil.ReadFile("/gozfs/copy/content")
+			require.Error(t, err)
+
+			fsCopy, err := GetFilesystem(ctx, "gozfs/copy")
+			require.NoError(t, err)
+			require.Error(t, fsCopy.Mount(ctx))
+			require.NoError(t, fsCopy.LoadKey(ctx, password))
+			require.NoError(t, fsCopy.Mount(ctx))
+
+			content, err := ioutil.ReadFile("/gozfs/copy/content")
+			require.NoError(t, err)
+			assert.Equal(t, "test", string(content))
 		},
 	},
 	{
