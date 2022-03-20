@@ -9,6 +9,11 @@ import (
 
 const datasetSnapshot = "snapshot"
 
+// CloneOptions stores options passed to Clone method
+type CloneOptions struct {
+	Properties map[string]string
+}
+
 // SendOptions is the set of options available for Send command
 type SendOptions struct {
 	Raw           bool
@@ -62,10 +67,10 @@ type Snapshot struct {
 
 // Clone clones a ZFS snapshot and returns the cloned filesystem.
 // An error will be returned if the input dataset is not of snapshot type.
-func (d *Snapshot) Clone(ctx context.Context, dest string, properties map[string]string) (*Filesystem, error) {
+func (d *Snapshot) Clone(ctx context.Context, dest string, options CloneOptions) (*Filesystem, error) {
 	args := []string{"clone"}
-	if len(properties) > 0 {
-		args = append(args, propsSlice(properties)...)
+	if len(options.Properties) > 0 {
+		args = append(args, propsSlice(options.Properties)...)
 	}
 	args = append(args, d.Info.Name, dest)
 	if _, err := zfs(ctx, args...); err != nil {
