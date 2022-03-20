@@ -41,8 +41,7 @@ func GetFilesystem(ctx context.Context, name string) (*Filesystem, error) {
 // A full list of available ZFS properties may be found here:
 // https://www.freebsd.org/cgi/man.cgi?zfs(8).
 func CreateFilesystem(ctx context.Context, name string, properties map[string]string) (*Filesystem, error) {
-	args := make([]string, 1, 4)
-	args[0] = "create"
+	args := []string{"create"}
 	password, exists := properties["password"]
 	delete(properties, "password")
 	if len(properties) > 0 {
