@@ -17,6 +17,7 @@ type CloneOptions struct {
 // SendOptions is the set of options available for Send command
 type SendOptions struct {
 	Raw           bool
+	Properties    bool
 	IncrementFrom *Snapshot
 }
 
@@ -112,6 +113,9 @@ func (d *Snapshot) Send(ctx context.Context, options SendOptions, output io.Writ
 	args := []string{"send"}
 	if options.Raw {
 		args = append(args, "--raw")
+	}
+	if options.Properties {
+		args = append(args, "--props")
 	}
 	if options.IncrementFrom != nil {
 		args = append(args, "-i", options.IncrementFrom.Info.Name)

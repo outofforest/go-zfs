@@ -396,10 +396,12 @@ var zfsTests = []testCase{
 			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test1"), 0o600))
 			s1, err := fs.Snapshot(ctx, "image1")
 			require.NoError(t, err)
+			require.NoError(t, s1.SetProperty(ctx, "test:prop", "value1"))
 
 			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test2"), 0o600))
 			s2, err := fs.Snapshot(ctx, "image2")
 			require.NoError(t, err)
+			require.NoError(t, s2.SetProperty(ctx, "test:prop", "value2"))
 
 			var sr1 *Snapshot
 			r, w := io.Pipe()
@@ -419,15 +421,21 @@ var zfsTests = []testCase{
 			require.NoError(t, err)
 			assert.Equal(t, "test1", string(content))
 
+			_, exists, err := sr1.GetProperty(ctx, "test:prop")
+			require.NoError(t, err)
+			assert.False(t, exists)
+
 			require.NoError(t, sr1.Rollback(ctx))
 
+			var sr2 *Snapshot
 			r, w = io.Pipe()
 			require.NoError(t, parallel.Run(ctx, func(ctx context.Context, spawn parallel.SpawnFn) error {
 				spawn("send", parallel.Continue, func(ctx context.Context) error {
-					return s2.Send(ctx, SendOptions{IncrementFrom: s1}, w)
+					return s2.Send(ctx, SendOptions{IncrementFrom: s1, Properties: true}, w)
 				})
 				spawn("receive", parallel.Exit, func(ctx context.Context) error {
-					_, err := ReceiveSnapshot(ctx, r, "gozfs/copy@received2")
+					var err error
+					sr2, err = ReceiveSnapshot(ctx, r, "gozfs/copy@received2")
 					return err
 				})
 				return nil
@@ -436,6 +444,11 @@ var zfsTests = []testCase{
 			content, err = ioutil.ReadFile("/gozfs/copy/content")
 			require.NoError(t, err)
 			assert.Equal(t, "test2", string(content))
+
+			value, exists, err := sr2.GetProperty(ctx, "test:prop")
+			require.NoError(t, err)
+			assert.True(t, exists)
+			assert.Equal(t, "value2", value)
 		},
 	},
 	{
