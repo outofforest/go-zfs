@@ -1,11 +1,10 @@
 package build
 
 import (
-	"context"
-
+	"github.com/outofforest/build"
 	"github.com/outofforest/buildgo"
 )
 
-func buildMe(ctx context.Context) error {
-	return buildgo.GoBuildPkg(ctx, "build/cmd", "bin/tmp-zbackup", true)
+func setup(deps build.DepsFunc) {
+	deps(buildgo.InstallAll)
 }
