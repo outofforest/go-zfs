@@ -7,7 +7,7 @@ import (
 	"github.com/outofforest/ioc/v2"
 	"github.com/outofforest/run"
 
-	me "github.com/outofforest/go-zfs/v3/build"
+	me "build"
 )
 
 func main() {
