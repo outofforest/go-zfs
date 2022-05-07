@@ -8,8 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/ridge/parallel"
-
+	"github.com/outofforest/parallel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
