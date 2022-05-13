@@ -3,7 +3,7 @@ module github.com/outofforest/go-zfs/v3
 go 1.18
 
 require (
-	github.com/outofforest/libexec v0.2.2
+	github.com/outofforest/libexec v0.3.0
 	github.com/outofforest/parallel v0.2.0
 	github.com/stretchr/testify v1.7.0
 )

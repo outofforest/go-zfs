@@ -8,8 +8,8 @@ github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORN
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
-github.com/outofforest/libexec v0.2.2 h1:ifKXqlDFrRbL+3kYgFjkpT8S4EcfWhffNPkIcnuZAbA=
-github.com/outofforest/libexec v0.2.2/go.mod h1:qYv/qAFlxw6yq3oEUbbYUbBLSjHsm/X9CvWdSqHNm9E=
+github.com/outofforest/libexec v0.3.0 h1:SImOgSKtq1q1bQgxoDWaiWyE2+omPo2/lQj8YG5ZyjY=
+github.com/outofforest/libexec v0.3.0/go.mod h1:qYv/qAFlxw6yq3oEUbbYUbBLSjHsm/X9CvWdSqHNm9E=
 github.com/outofforest/logger v0.2.0 h1:mBUGPTu/nZjw81Qi/xspF0mdxzMEYl7ytANgNNixXgA=
 github.com/outofforest/logger v0.2.0/go.mod h1:01cg+cIodmNhDh3tHk/eGKTAxbQIwcGM3Apo46ebWAs=
 github.com/outofforest/parallel v0.2.0 h1:K9dAeOPodnuJvHPmd5OL7eiQ9dd7xXRpuN0PF79tDYM=
