@@ -70,6 +70,7 @@ linters:
     - ireturn
     - goconst
     - ifshort
+    - exhaustruct
 
 linters-settings:
   nakedret:
