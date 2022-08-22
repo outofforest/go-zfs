@@ -3,7 +3,7 @@ package zfs
 import (
 	"context"
 	"io"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"sort"
 	"testing"
@@ -117,7 +117,7 @@ var zfsTests = []testCase{
 		Fn: func(t *testing.T, ctx context.Context) {
 			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{})
 			require.NoError(t, err)
-			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test"), 0o600))
+			require.NoError(t, os.WriteFile("/gozfs/fs/content", []byte("test"), 0o600))
 
 			s, err := fs.Snapshot(ctx, "image")
 			require.NoError(t, err)
@@ -134,7 +134,7 @@ var zfsTests = []testCase{
 			assert.True(t, exists)
 			assert.Equal(t, "value", value)
 
-			content, err := ioutil.ReadFile("/gozfs/fsclone/content")
+			content, err := os.ReadFile("/gozfs/fsclone/content")
 			require.NoError(t, err)
 
 			assert.Equal(t, "test", string(content))
@@ -147,18 +147,18 @@ var zfsTests = []testCase{
 
 			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{})
 			require.NoError(t, err)
-			require.NoError(t, ioutil.WriteFile(file, []byte("test"), 0o600))
+			require.NoError(t, os.WriteFile(file, []byte("test"), 0o600))
 
 			s, err := fs.Snapshot(ctx, "image")
 			require.NoError(t, err)
-			require.NoError(t, ioutil.WriteFile(file, []byte("test2"), 0o600))
+			require.NoError(t, os.WriteFile(file, []byte("test2"), 0o600))
 
 			_, err = fs.Snapshot(ctx, "image2")
 			require.NoError(t, err)
-			require.NoError(t, ioutil.WriteFile(file, []byte("test3"), 0o600))
+			require.NoError(t, os.WriteFile(file, []byte("test3"), 0o600))
 
 			require.NoError(t, s.Rollback(ctx))
-			content, err := ioutil.ReadFile(file)
+			content, err := os.ReadFile(file)
 			require.NoError(t, err)
 
 			assert.Equal(t, "test", string(content))
@@ -353,13 +353,13 @@ var zfsTests = []testCase{
 
 			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{})
 			require.NoError(t, err)
-			require.NoError(t, ioutil.WriteFile(file, []byte("test"), 0o600))
+			require.NoError(t, os.WriteFile(file, []byte("test"), 0o600))
 			require.NoError(t, fs.Unmount(ctx))
-			_, err = ioutil.ReadFile(file)
+			_, err = os.ReadFile(file)
 			assert.Error(t, err)
 
 			require.NoError(t, fs.Mount(ctx))
-			content, err := ioutil.ReadFile(file)
+			content, err := os.ReadFile(file)
 			require.NoError(t, err)
 			assert.Equal(t, "test", string(content))
 		},
@@ -372,16 +372,16 @@ var zfsTests = []testCase{
 
 			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{Password: password})
 			require.NoError(t, err)
-			require.NoError(t, ioutil.WriteFile(file, []byte("test"), 0o600))
+			require.NoError(t, os.WriteFile(file, []byte("test"), 0o600))
 			require.NoError(t, fs.Unmount(ctx))
 			require.NoError(t, fs.UnloadKey(ctx))
-			_, err = ioutil.ReadFile(file)
+			_, err = os.ReadFile(file)
 			assert.Error(t, err)
 			assert.Error(t, fs.Mount(ctx))
 
 			require.NoError(t, fs.LoadKey(ctx, password))
 			require.NoError(t, fs.Mount(ctx))
-			content, err := ioutil.ReadFile(file)
+			content, err := os.ReadFile(file)
 			require.NoError(t, err)
 			assert.Equal(t, "test", string(content))
 		},
@@ -392,12 +392,12 @@ var zfsTests = []testCase{
 			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{})
 			require.NoError(t, err)
 
-			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test1"), 0o600))
+			require.NoError(t, os.WriteFile("/gozfs/fs/content", []byte("test1"), 0o600))
 			s1, err := fs.Snapshot(ctx, "image1")
 			require.NoError(t, err)
 			require.NoError(t, s1.SetProperty(ctx, "test:prop", "value1"))
 
-			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test2"), 0o600))
+			require.NoError(t, os.WriteFile("/gozfs/fs/content", []byte("test2"), 0o600))
 			s2, err := fs.Snapshot(ctx, "image2")
 			require.NoError(t, err)
 			require.NoError(t, s2.SetProperty(ctx, "test:prop", "value2"))
@@ -416,7 +416,7 @@ var zfsTests = []testCase{
 				return nil
 			}))
 
-			content, err := ioutil.ReadFile("/gozfs/copy/content")
+			content, err := os.ReadFile("/gozfs/copy/content")
 			require.NoError(t, err)
 			assert.Equal(t, "test1", string(content))
 
@@ -440,7 +440,7 @@ var zfsTests = []testCase{
 				return nil
 			}))
 
-			content, err = ioutil.ReadFile("/gozfs/copy/content")
+			content, err = os.ReadFile("/gozfs/copy/content")
 			require.NoError(t, err)
 			assert.Equal(t, "test2", string(content))
 
@@ -458,7 +458,7 @@ var zfsTests = []testCase{
 			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{Password: password})
 			require.NoError(t, err)
 
-			require.NoError(t, ioutil.WriteFile("/gozfs/fs/content", []byte("test"), 0o600))
+			require.NoError(t, os.WriteFile("/gozfs/fs/content", []byte("test"), 0o600))
 			s, err := fs.Snapshot(ctx, "image")
 			require.NoError(t, err)
 
@@ -474,7 +474,7 @@ var zfsTests = []testCase{
 				return nil
 			}))
 
-			_, err = ioutil.ReadFile("/gozfs/copy/content")
+			_, err = os.ReadFile("/gozfs/copy/content")
 			require.Error(t, err)
 
 			fsCopy, err := GetFilesystem(ctx, "gozfs/copy")
@@ -483,7 +483,7 @@ var zfsTests = []testCase{
 			require.NoError(t, fsCopy.LoadKey(ctx, password))
 			require.NoError(t, fsCopy.Mount(ctx))
 
-			content, err := ioutil.ReadFile("/gozfs/copy/content")
+			content, err := os.ReadFile("/gozfs/copy/content")
 			require.NoError(t, err)
 			assert.Equal(t, "test", string(content))
 		},
