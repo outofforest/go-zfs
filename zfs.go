@@ -194,7 +194,7 @@ func outputToFields(out string) [][]string {
 	output := make([][]string, len(lines))
 
 	for i, l := range lines {
-		output[i] = strings.Fields(l)
+		output[i] = strings.Split(l, "\t")
 	}
 
 	return output
