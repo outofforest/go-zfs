@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/outofforest/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -59,9 +60,10 @@ func TestZPool(t *testing.T) {
 	t.Cleanup(cleanZPool)
 	cleanZPool()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(logger.WithLogger(context.Background(), logger.New(logger.ToolDefaultConfig)))
 	t.Cleanup(cancel)
 
+	require.NoError(t, exec.Command("modprobe", "zfs").Run())
 	require.NoError(t, exec.Command("modprobe", "brd", "rd_nr=2", "rd_size=102400").Run())
 	for _, test := range zpoolTests {
 		test := test

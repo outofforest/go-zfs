@@ -8,6 +8,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/outofforest/logger"
 	"github.com/outofforest/parallel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +39,7 @@ var zfsTests = []testCase{
 		Name: "TestFilesystemProperties",
 		Fn: func(t *testing.T, ctx context.Context) {
 			fs, err := CreateFilesystem(ctx, "gozfs/fs", CreateFilesystemOptions{
-				Properties: map[string]string{"test:prop1": "value1", "test:prop2": "value2"},
+				Properties: map[string]string{"test:prop1": "value1", "test:prop2": "value2 with spaces"},
 			})
 			require.NoError(t, err)
 
@@ -54,9 +55,9 @@ var zfsTests = []testCase{
 			assert.False(t, exists3)
 
 			assert.Equal(t, "value1", v1)
-			assert.Equal(t, "value2", v2)
+			assert.Equal(t, "value2 with spaces", v2)
 
-			require.NoError(t, fs.SetProperty(ctx, "test:prop2", "value22"))
+			require.NoError(t, fs.SetProperty(ctx, "test:prop2", "value22 with spaces"))
 			require.NoError(t, fs.SetProperty(ctx, "test:prop3", "value3"))
 
 			v2, exists2, err = fs.GetProperty(ctx, "test:prop2")
@@ -67,7 +68,7 @@ var zfsTests = []testCase{
 			assert.True(t, exists2)
 			assert.True(t, exists3)
 
-			assert.Equal(t, "value22", v2)
+			assert.Equal(t, "value22 with spaces", v2)
 			assert.Equal(t, "value3", v3)
 		},
 	},
@@ -527,9 +528,10 @@ func TestZFS(t *testing.T) {
 	t.Cleanup(cleanZFS)
 	cleanZFS()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(logger.WithLogger(context.Background(), logger.New(logger.ToolDefaultConfig)))
 	t.Cleanup(cancel)
 
+	require.NoError(t, exec.Command("modprobe", "zfs").Run())
 	require.NoError(t, exec.Command("modprobe", "brd", "rd_nr=1", "rd_size=102400").Run())
 	for _, test := range zfsTests {
 		test := test
