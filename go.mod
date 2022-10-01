@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/outofforest/libexec v0.3.5
 	github.com/outofforest/logger v0.3.3
-	github.com/outofforest/parallel v0.2.2
+	github.com/outofforest/parallel v0.2.3
 	github.com/stretchr/testify v1.8.0
 )
 
