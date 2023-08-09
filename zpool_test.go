@@ -60,7 +60,7 @@ func TestZPool(t *testing.T) {
 	t.Cleanup(cleanZPool)
 	cleanZPool()
 
-	ctx, cancel := context.WithCancel(logger.WithLogger(context.Background(), logger.New(logger.ToolDefaultConfig)))
+	ctx, cancel := context.WithCancel(logger.WithLogger(context.Background(), logger.New(logger.DefaultConfig)))
 	t.Cleanup(cancel)
 
 	require.NoError(t, exec.Command("modprobe", "zfs").Run())

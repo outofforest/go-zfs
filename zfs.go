@@ -115,11 +115,7 @@ func parseLine(line []string, info *Info) error {
 	if err = setUint(&info.Logicalused, line[10]); err != nil {
 		return err
 	}
-	if err = setUint(&info.Usedbydataset, line[11]); err != nil {
-		return err
-	}
-
-	return nil
+	return setUint(&info.Usedbydataset, line[11])
 }
 
 func propsSlice(properties map[string]string) []string {
