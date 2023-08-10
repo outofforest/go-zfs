@@ -6,7 +6,7 @@ require (
 	github.com/outofforest/libexec v0.3.9
 	github.com/outofforest/logger v0.4.0
 	github.com/outofforest/parallel v0.2.3
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 )
 
 require (
