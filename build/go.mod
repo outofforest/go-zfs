@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/outofforest/build v1.13.1
-	github.com/outofforest/buildgo v0.7.3
+	github.com/outofforest/buildgo v0.8.0
 )
 
 require (
